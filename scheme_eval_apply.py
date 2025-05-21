@@ -33,7 +33,10 @@ def scheme_eval(expr, env, _=None): # Optional third argument is ignored
         return scheme_forms.SPECIAL_FORMS[first](rest, env)
     else:
         # BEGIN PROBLEM 3
-        "*** YOUR CODE HERE ***"
+        # Evaluate the operator and operands
+        operator = scheme_eval(first, env)
+        operands = rest.map(lambda operand: scheme_eval(operand, env))
+        return scheme_apply(operator, operands, env)
         # END PROBLEM 3
 
 def scheme_apply(procedure, args, env):
@@ -44,21 +47,30 @@ def scheme_apply(procedure, args, env):
        assert False, "Not a Frame: {}".format(env)
     if isinstance(procedure, BuiltinProcedure):
         # BEGIN PROBLEM 2
-        "*** YOUR CODE HERE ***"
+        # Convert Scheme list to Python list
+        args_list = []
+        while args is not nil:
+            args_list.append(args.first)
+            args = args.rest
+        # Add environment if needed
+        if procedure.need_env:
+            args_list.append(env)
         # END PROBLEM 2
         try:
             # BEGIN PROBLEM 2
-            "*** YOUR CODE HERE ***"
+            return procedure.py_func(*args_list)
             # END PROBLEM 2
         except TypeError as err:
             raise SchemeError('incorrect number of arguments: {0}'.format(procedure))
     elif isinstance(procedure, LambdaProcedure):
         # BEGIN PROBLEM 9
-        "*** YOUR CODE HERE ***"
+        new_env = procedure.env.make_child_frame(procedure.formals, args)
+        return eval_all(procedure.body, new_env)
         # END PROBLEM 9
     elif isinstance(procedure, MuProcedure):
         # BEGIN PROBLEM 11
-        "*** YOUR CODE HERE ***"
+        new_env = env.make_child_frame(procedure.formals, args)
+        return eval_all(procedure.body, new_env)
         # END PROBLEM 11
     else:
         assert False, "Unexpected procedure: {}".format(procedure)
@@ -79,7 +91,16 @@ def eval_all(expressions, env):
     2
     """
     # BEGIN PROBLEM 6
-    return scheme_eval(expressions.first, env) # replace this with lines of your own code
+    if expressions is nil:
+        return None
+    
+    # Evaluate all but last expression
+    while expressions.rest is not nil:
+        scheme_eval(expressions.first, env)
+        expressions = expressions.rest
+    
+    # Tail context for last expression
+    return scheme_eval(expressions.first, env)
     # END PROBLEM 6
 
 
@@ -88,16 +109,13 @@ def eval_all(expressions, env):
 ################################
 
 class Unevaluated:
-    """An expression and an environment in which it is to be evaluated."""
-
+    """An expression and environment to be evaluated later."""
     def __init__(self, expr, env):
-        """Expression EXPR to be evaluated in Frame ENV."""
         self.expr = expr
         self.env = env
 
 def complete_apply(procedure, args, env):
-    """Apply procedure to args in env; ensure the result is not an Unevaluated."""
-    validate_procedure(procedure)
+    """Apply procedure ensuring result is fully evaluated."""
     val = scheme_apply(procedure, args, env)
     if isinstance(val, Unevaluated):
         return scheme_eval(val.expr, val.env)
@@ -115,22 +133,38 @@ def optimize_tail_calls(unoptimized_scheme_eval):
 
         result = Unevaluated(expr, env)
         # BEGIN OPTIONAL PROBLEM 1
-        "*** YOUR CODE HERE ***"
+        while True:
+            expr, env = result.expr, result.env
+            
+            # Base cases
+            if scheme_symbolp(expr):
+                result = env.lookup(expr)
+                break
+            elif self_evaluating(expr):
+                result = expr
+                break
+            elif not scheme_listp(expr):
+                raise SchemeError('malformed list: {0}'.format(repl_str(expr)))
+            
+            first, rest = expr.first, expr.rest
+            
+            # Special forms
+            if scheme_symbolp(first) and first in scheme_forms.SPECIAL_FORMS:
+                result = scheme_forms.SPECIAL_FORMS[first](rest, env)
+                if not isinstance(result, Unevaluated):
+                    break
+            else:
+                # Regular procedure call
+                operator = optimized_eval(first, env)
+                                
+                # Evaluate operands
+                operands = rest.map(lambda operand: optimized_eval(operand, env))
+                result = complete_apply(operator, operands, env)
+                if not isinstance(result, Unevaluated):
+                    break
+        return result
         # END OPTIONAL PROBLEM 1
     return optimized_eval
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 ################################################################
 # Uncomment the following line to apply tail call optimization #

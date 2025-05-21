@@ -7,11 +7,6 @@ from scheme_builtins import *
 # Special Forms #
 #################
 
-# Each of the following do_xxx_form functions takes the cdr of a special form as
-# its first argument---a Scheme list representing a special form without the
-# initial identifying symbol (if, lambda, quote, ...). Its second argument is
-# the environment in which the form is to be evaluated.
-
 def do_define_form(expressions, env):
     """Evaluate a define form.
     >>> env = create_global_frame()
@@ -36,12 +31,19 @@ def do_define_form(expressions, env):
         # assigning a name to a value e.g. (define x (+ 1 2))
         validate_form(expressions, 2, 2) # Checks that expressions is a list of length exactly 2
         # BEGIN PROBLEM 4
-        "*** YOUR CODE HERE ***"
+        env.define(signature, scheme_eval(expressions.rest.first, env))
+        return signature
         # END PROBLEM 4
     elif isinstance(signature, Pair) and scheme_symbolp(signature.first):
         # defining a named procedure e.g. (define (f x y) (+ x y))
         # BEGIN PROBLEM 10
-        "*** YOUR CODE HERE ***"
+        name = signature.first
+        formals = signature.rest
+        body = expressions.rest
+        lambda_expr = Pair(formals, body)
+        proc = do_lambda_form(lambda_expr, env)
+        env.define(name, proc)
+        return name
         # END PROBLEM 10
     else:
         bad_signature = signature.first if isinstance(signature, Pair) else signature
@@ -56,7 +58,7 @@ def do_quote_form(expressions, env):
     """
     validate_form(expressions, 1, 1)
     # BEGIN PROBLEM 5
-    "*** YOUR CODE HERE ***"
+    return expressions.first
     # END PROBLEM 5
 
 def do_begin_form(expressions, env):
@@ -82,7 +84,7 @@ def do_lambda_form(expressions, env):
     formals = expressions.first
     validate_formals(formals)
     # BEGIN PROBLEM 7
-    "*** YOUR CODE HERE ***"
+    return LambdaProcedure(formals, expressions.rest, env)
     # END PROBLEM 7
 
 def do_if_form(expressions, env):
@@ -115,7 +117,14 @@ def do_and_form(expressions, env):
     False
     """
     # BEGIN PROBLEM 12
-    "*** YOUR CODE HERE ***"
+    if expressions is nil:
+        return True
+    while expressions.rest is not nil:
+        val = scheme_eval(expressions.first, env)
+        if is_scheme_false(val):
+            return val
+        expressions = expressions.rest
+    return scheme_eval(expressions.first, env)
     # END PROBLEM 12
 
 def do_or_form(expressions, env):
@@ -133,7 +142,14 @@ def do_or_form(expressions, env):
     6
     """
     # BEGIN PROBLEM 12
-    "*** YOUR CODE HERE ***"
+    if expressions is nil:
+        return False
+    while expressions.rest is not nil:
+        val = scheme_eval(expressions.first, env)
+        if is_scheme_true(val):
+            return val
+        expressions = expressions.rest
+    return scheme_eval(expressions.first, env)
     # END PROBLEM 12
 
 def do_cond_form(expressions, env):
@@ -153,7 +169,9 @@ def do_cond_form(expressions, env):
             test = scheme_eval(clause.first, env)
         if is_scheme_true(test):
             # BEGIN PROBLEM 13
-            "*** YOUR CODE HERE ***"
+            if clause.rest is nil:
+                return test
+            return eval_all(clause.rest, env)
             # END PROBLEM 13
         expressions = expressions.rest
 
@@ -177,7 +195,15 @@ def make_let_frame(bindings, env):
         raise SchemeError('bad bindings list in let form')
     names = vals = nil
     # BEGIN PROBLEM 14
-    "*** YOUR CODE HERE ***"
+    current = bindings
+    while current is not nil:
+        binding = current.first
+        validate_form(binding, 2, 2)
+        names = Pair(binding.first, names)
+        vals = Pair(scheme_eval(binding.rest.first, env), vals)
+        current = current.rest
+
+    validate_formals(names)
     # END PROBLEM 14
     return env.make_child_frame(names, vals)
 
@@ -219,10 +245,8 @@ def do_mu_form(expressions, env):
     formals = expressions.first
     validate_formals(formals)
     # BEGIN PROBLEM 11
-    "*** YOUR CODE HERE ***"
+    return MuProcedure(formals, expressions.rest)
     # END PROBLEM 11
-
-
 
 SPECIAL_FORMS = {
     'and': do_and_form,
